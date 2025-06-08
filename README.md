@@ -1,15 +1,5 @@
 # clould_server_image_upload
 
-<style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 2rem; }
-    pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; }
-    code { font-family: Consolas, monospace; }
-    h1, h2, h3 { color: #333; }
-    ul { margin-left: 1.5rem; }
-    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-    th, td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
-  </style>
-
 <h1>📸 <code>setPhoto(max:completionHandler:)</code> Function Documentation</h1>
 
 <p>
