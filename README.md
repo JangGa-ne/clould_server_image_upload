@@ -1,5 +1,3 @@
-# clould_server_image_upload
-
 <h1>📸 <code>setPhoto(max:completionHandler:)</code> Function Documentation</h1>
 
 <p>
