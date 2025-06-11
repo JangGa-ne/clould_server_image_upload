@@ -1,56 +1,82 @@
+import RxSwift
+import RxCocoa
 import BSImagePicker
 import Photos
 
-func setPhoto(max: Int?, completionHandler: @escaping (([(file_name: String, file_data: Data, file_size: Int)]) -> Void)) {
+extension Reactive where Base: UIViewController {
     
-    PHPhotoLibrary.requestAuthorization({ status in
-        if (status == .authorized) {
-            
-            var photos: [(file_name: String, file_data: Data, file_size: Int)] = []
-            
-            let imagePicker = ImagePickerController()
-            imagePicker.settings.selection.max = max ?? 1
-            if (max ?? 1 > 1) {
-                imagePicker.settings.theme.selectionStyle = .numbered
-            } else {
-                imagePicker.settings.theme.selectionStyle = .checked
+    // 1. 권한 요청
+    func requestPhotoAuthorization() -> Single<PHAuthorizationStatus> {
+        return Single.create { single in
+            PHPhotoLibrary.requestAuthorization { status in
+                single(.success(status))
             }
-            imagePicker.settings.fetch.assets.supportedMediaTypes = [.image]
-            if #available(iOS 13.0, *) { imagePicker.settings.theme.backgroundColor = .systemBackground } else { imagePicker.settings.theme.backgroundColor = .white }
-            imagePicker.settings.list.cellsPerRow = { (verticalSize: UIUserInterfaceSizeClass, horizontalSize: UIUserInterfaceSizeClass) -> Int in return 4 }
-            self.presentImagePicker(imagePicker, select: nil, deselect: nil, cancel: nil) { assets in
-                assets.forEach { asset in
-                    let options = PHImageRequestOptions()
-                    options.isSynchronous = true
-                    PHImageManager.default().requestImage(for: asset, targetSize: CGSize(width: 1024, height: 1024), contentMode: .aspectFill, options: options) { image, _ in
-                        let file_name = (PHAssetResource.assetResources(for: asset).first?.originalFilename ?? "").lowercased()
-                        guard let img = image else { return }
-                        if (file_name.contains("jpeg") || file_name.contains("jpg")), let image = img.sd_imageData(as: .JPEG, compressionQuality: 0.3), image.count <= 26214400 {
-                            photos.append((file_name: file_name, file_data: image, file_size: image.count))
-                        } else if file_name.contains("png"), let image = img.sd_imageData(as: .PNG, compressionQuality: 0.3), image.count <= 26214400 {
-                            photos.append((file_name: file_name, file_data: image, file_size: image.count))
-                        } else if file_name.contains("heic"), let image = img.sd_imageData(as: .HEIC, compressionQuality: 0.3), image.count <= 26214400 {
-                            photos.append((file_name: file_name, file_data: image, file_size: image.count))
-                        } else if file_name.contains("heif"), let image = img.sd_imageData(as: .HEIF, compressionQuality: 0.3), image.count <= 26214400 {
-                            photos.append((file_name: file_name, file_data: image, file_size: image.count))
-                        } else {
-                            photos.append((file_name: file_name, file_data: Data(), file_size: 0))
-                        }
-                        if (assets.count == photos.count) { completionHandler(photos) }
+            return Disposables.create()
+        }
+    }
+
+    // 2. 이미지 피커 프레젠트
+    func presentImagePicker(max: Int = 1) -> Observable<[PHAsset]> {
+        return Observable.create { [weak base] observer in
+            let picker = ImagePickerController()
+            picker.settings.selection.max = max
+            picker.settings.theme.selectionStyle = (max > 1) ? .numbered : .checked
+            picker.settings.fetch.assets.supportedMediaTypes = [.image]
+            picker.settings.list.cellsPerRow = { _, _ in 4 }
+            picker.settings.theme.backgroundColor = {
+                if #available(iOS 13.0, *) { return .systemBackground }
+                return .white
+            }()
+            
+            base?.presentImagePicker(picker, select: nil, deselect: nil, cancel: {
+                observer.onCompleted()
+            }, finish: { assets in
+                observer.onNext(assets)
+                observer.onCompleted()
+            })
+
+            return Disposables.create()
+        }
+    }
+
+    // 3. 이미지 추출 및 압축
+    func imageData(from asset: PHAsset) -> Observable<(file_name: String, file_data: Data, file_size: Int)> {
+        return Observable.create { observer in
+            let options = PHImageRequestOptions()
+            options.isSynchronous = true
+            
+            PHImageManager.default().requestImage(
+                for: asset,
+                targetSize: CGSize(width: 1024, height: 1024),
+                contentMode: .aspectFill,
+                options: options
+            ) { image, _ in
+                let fileName = PHAssetResource.assetResources(for: asset).first?.originalFilename.lowercased() ?? ""
+                guard let image = image else {
+                    observer.onNext((file_name: fileName, file_data: Data(), file_size: 0))
+                    observer.onCompleted()
+                    return
+                }
+
+                let types: [(String, SDImageFormat)] = [
+                    ("jpeg", .JPEG), ("jpg", .JPEG),
+                    ("png", .PNG), ("heic", .HEIC),
+                    ("heif", .HEIF)
+                ]
+
+                for (ext, format) in types where fileName.contains(ext) {
+                    if let data = image.sd_imageData(as: format, compressionQuality: 0.3), data.count <= 25_165_824 {
+                        observer.onNext((file_name: fileName, file_data: data, file_size: data.count))
+                        observer.onCompleted()
+                        return
                     }
                 }
+
+                observer.onNext((file_name: fileName, file_data: Data(), file_size: 0))
+                observer.onCompleted()
             }
-        } else {
-            
-            DispatchQueue.main.async {
-                
-                let alert = UIAlertController(title: "\'App\'에서 \'설정\'을(를) 열려고 합니다.", message: nil, preferredStyle: .alert)
-                alert.addAction(UIAlertAction(title: "확인", style: .default, handler: { _ in
-                    if let settingUrl = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(settingUrl) }
-                }))
-                alert.addAction(UIAlertAction(title: "취소", style: .cancel, handler: nil))
-                self.present(alert, animated: true, completion: nil)
-            }
+
+            return Disposables.create()
         }
-    })
+    }
 }
