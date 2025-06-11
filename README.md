@@ -36,10 +36,10 @@ pod 'SDWebImage'
 
 ## 🚀 Usage
 
-let disposeBag = DisposeBag()
+<pre><code>let disposeBag = DisposeBag()
 
 self.rx.requestPhotoAuthorization()
-    .flatMap { status -> Observable<[PHAsset]> in
+    .flatMap { status -&gt; Observable&lt;[PHAsset]&gt; in
         guard status == .authorized else {
             self.presentSettingsAlert()
             return .empty()
@@ -57,13 +57,13 @@ self.rx.requestPhotoAuthorization()
         // [(file_name: String, file_data: Data, file_size: Int)]
         print("압축된 이미지 수: \(compressedImages.count)")
     })
-    .disposed(by: disposeBag)
+    .disposed(by: disposeBag)</code></pre>
 
 ---
 
 ## 📘 Sample Alert (권한 거부 시)
 
-func presentSettingsAlert() {
+<pre><code>func presentSettingsAlert() {
     let alert = UIAlertController(
         title: "'앱'에서 '설정'을 열려고 합니다.",
         message: "사진 접근 권한이 필요합니다.",
@@ -76,7 +76,7 @@ func presentSettingsAlert() {
     })
     alert.addAction(UIAlertAction(title: "취소", style: .cancel))
     self.present(alert, animated: true)
-}
+}</code></pre>
 
 ---
 
